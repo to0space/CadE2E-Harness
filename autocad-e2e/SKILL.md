@@ -1,66 +1,98 @@
 ---
 name: autocad-e2e
-description: Run, diagnose, or extend ModelY end-to-end and fully automated AutoCAD tests through Autodesk Core Console. Use for command and config discovery, named-DWG validation, mutating CAD workflows, generated-DWG checks, or HTML/PDF/PNG visual reports inside the real AutoCAD host.
+description: Run, diagnose, or extend end-to-end and fully automated CAD tests through Autodesk AutoCAD Core Console, then verify the result in a normal full-AutoCAD user environment. Use for assembly loading, command execution, named-DWG validation, mutating CAD workflows, generated-DWG checks, HTML/PDF/PNG visual evidence, or final user-environment acceptance in a consuming codebase.
 ---
 
 # AutoCAD E2E
 
-Use the repository's Core Console runners to verify behavior inside AutoCAD. Read `../README.md` and the selected runner before changing or invoking it.
+Read the consuming repository's codebase-specific test skill and the selected
+runner before execution. The consuming repository defines its build targets,
+assembly paths, AutoCAD commands, semantic markers, and expected artifacts.
 
-## Select the smallest sufficient runner
+## Select the smallest sufficient test
 
-- `../Run-Tests.ps1`: command registration, facade wiring, config discovery, and YAML loading.
-- `../Run-LmscTests.ps1`: read-only LMSC readiness checks against a named DWG.
-- `../Run-LmscVisualTests.ps1`: real LMSC generation on a copied DWG, with an HTML/PDF/PNG visual report.
+- Use a host-loading test for command registration, dependency loading, and configuration discovery.
+- Use a read-only named-DWG test for drawing readiness and domain assertions.
+- Use a mutating named-DWG test when correctness depends on generated or modified CAD entities.
+- Add a visual report when geometry, layout, scale, clipping, or overlap must be inspected.
 
-Use the visual runner when correctness depends on entities created or modified in the drawing. Core Console cannot validate modeless WPF rendering; test that in full AutoCAD.
+Core Console validates headless AutoCAD behavior. Validate modeless UI rendering
+and interactive window behavior in full AutoCAD.
 
-## Execution rules
+## Execution contract
 
-1. Build and load the standard facade at `ModelY/bin/<Configuration>/net472/ModelY.AutoCAD.dll`.
-2. Do not redirect plugin output into `Artifacts` or create a parallel deployment.
-3. Close AutoCAD before rebuilding. Treat `MSB3026` locked-DLL warnings as build failures; build with `-warnaserror:MSB3026` when appropriate.
-4. For a user-provided DWG, copy it into a new artifact directory before running any mutating command. Never modify the source DWG.
-5. Name run directories with local timestamps in `yyyyMMdd-HHmmss-fff` form. Do not use hashes or GUIDs.
-6. Load the exact facade and dependent test assemblies in their required order.
-7. Capture stdout and stderr asynchronously, save `CoreConsole.log`, and check the process exit code.
-8. Require the runner's final semantic marker, such as `MODELY_CAD_TESTS_END|PASS` or `MODELY_CAD_VISUAL_TEST_END|PASS`, plus all expected files and assertions. A successful build or zero exit code alone is insufficient.
+1. Build and load the consuming project's standard deployment output.
+2. Do not create a parallel plugin deployment for testing.
+3. Treat locked deployment warnings as build failures.
+4. Copy a user-provided drawing into a new artifact directory before any mutating command.
+5. Name run directories with local timestamps in `yyyyMMdd-HHmmss-fff` form.
+6. Load the exact assemblies under test in their required order.
+7. Capture stdout and stderr asynchronously and persist the complete host log.
+8. Check the Core Console exit code, the project-defined semantic completion marker, every assertion, and every required artifact.
 
-## Make mutating commands testable
+A successful build or zero process exit code does not establish E2E success.
 
-Expose a typed headless entry point that returns a structured result or emits an unambiguous failure marker. AutoCAD command wrappers and legacy code may catch exceptions, so console execution alone can otherwise report a false pass.
+## Make commands automatable
 
-Validate configured target blocks against block definitions imported inside AutoCAD. Record available, missing, and fallback block names in the artifact directory. Report latent asset gaps even when the current drawing does not exercise them.
+Expose a typed headless entry point returning a structured result, or emit an
+unambiguous success or failure marker. CAD command wrappers and legacy code may
+catch exceptions, so the runner must detect semantic failure independently of
+the process exit code.
+
+Keep configuration and asset validation inside the AutoCAD host when behavior
+depends on imported block definitions, drawing dictionaries, layouts, or other
+host state. Persist enough diagnostics to explain missing, substituted, or
+fallback resources.
 
 ## Produce trustworthy visual evidence
 
 For a generation test:
 
 1. Record model-space entity IDs before the command.
-2. Run the command once on the fresh copied DWG.
+2. Run the command once on the fresh drawing copy.
 3. Record entity IDs afterward and calculate the current-run difference.
-4. Plot only the new entities by temporarily hiding pre-existing model entities inside an aborting transaction.
-5. Save the complete post-command drawing separately as `generated.dwg`.
+4. Plot the current-run entities by temporarily hiding pre-existing model entities inside an aborting transaction.
+5. Save the complete post-command drawing separately.
 
-This prevents old elevations already present in the source drawing from overlapping the current run's visual evidence. The saved DWG remains a faithful full result and may contain both old and newly generated content.
+This isolates the visual evidence when the source already contains generated
+geometry. The saved drawing remains the complete result.
 
-For Core Console plotting, set `BACKGROUNDPLOT=0` and `FILEDIA=0`, activate Model space, validate plot devices, and wait for output files. Keep PDFs print-friendly. Create black-background PNG previews with the deterministic image transformation used by the harness.
+For Core Console plotting, disable background plotting and file dialogs,
+activate the required layout, validate plot devices, and wait for output files.
+Keep PDFs print-friendly. A consuming project may generate deterministic
+dark-background previews for screen inspection.
 
-Inspect every PNG for blank output, clipping, unreadable scale, and overlap. Confirm that the HTML report links or embeds every expected facade and the generated DWG.
+Inspect every visual for blank output, clipping, unreadable scale, and overlap.
+Confirm that the report includes every expected view and links the generated
+drawing.
+
+## Rerun in the normal user environment
+
+After the automated suite passes, rerun the user-facing workflow in the
+installed full AutoCAD application under a normal user profile. Treat this run
+as final acceptance for a change that will be loaded interactively.
+
+1. Load the same standard deployment assembly exercised by Core Console.
+2. Open a fresh copy of the representative drawing used by the automated run.
+3. Invoke the real public command through its normal UI or command-line entry.
+4. Verify command discovery, dependency loading, configuration and asset
+   discovery, prompts or modeless UI, drawing mutations, and saved output.
+5. Record the assembly path, AutoCAD version/profile, input drawing, command,
+   observed result, and any screenshot or generated drawing used as evidence.
+
+Report the state as `Core Console PASS / normal-user run pending` until this
+acceptance run has completed. If the agent cannot control the interactive CAD
+session, provide exact reproduction steps and capture the user's result.
 
 ## Diagnose failures
 
-- Files present on disk do not prove AutoCAD discovered or loaded them. Confirm the exact loaded paths in the log.
-- Separate harmless font-substitution or temporary-file cleanup warnings from failed assertions, missing markers, nonzero exit codes, and absent artifacts.
-- If output overlaps, first determine whether the source already contains generated geometry; then verify current-run entity isolation and ensure the command ran only once.
-- If a block is missing, inspect `block-definitions.txt`, the configured name, and any selected fallback before changing command logic.
+- Confirm the exact assemblies loaded by AutoCAD; filesystem presence does not prove discovery or loading.
+- Separate host warnings from failed assertions, missing markers, nonzero exit codes, and absent artifacts.
+- For overlap, determine whether the source contains prior output, verify current-run entity isolation, and confirm the command ran once.
+- For missing assets, compare configured identifiers with the definitions actually loaded inside AutoCAD before changing domain logic.
 
 ## Report the result
 
-State:
-
-- the exact facade path and source DWG tested;
-- the runner and PASS marker observed;
-- the artifact directory, log, report, and generated-DWG paths;
-- the key assertions and entity counts;
-- unresolved asset, warning, or visual-quality risks.
+State the loaded assemblies, input drawing, runner, semantic marker, key
+assertions, artifact paths, generated entity counts, normal-user acceptance
+result, and unresolved risks.

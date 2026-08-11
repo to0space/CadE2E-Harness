@@ -1,4 +1,4 @@
 interface:
   display_name: "AutoCAD E2E"
-  short_description: "Run ModelY AutoCAD Core Console E2E tests"
-  default_prompt: "Use $autocad-e2e to run and diagnose the appropriate ModelY AutoCAD end-to-end test."
+  short_description: "Run CAD automation and user acceptance"
+  default_prompt: "Use $autocad-e2e to run the appropriate automated CAD test and complete normal-user AutoCAD acceptance for this codebase."
