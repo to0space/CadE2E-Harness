@@ -7,7 +7,9 @@ param(
     [string]$CommandName,
     [Parameter(Mandatory = $true)]
     [string]$SuccessMarker,
+    [Parameter(Mandatory = $true)]
     [string]$TestDrawingPath,
+    [string]$RepositoryRoot,
     [string]$CoreConsolePath,
     [string]$ArtifactPrefix = "Command-Smoke",
     [ValidateSet("Debug", "Release")]
@@ -29,7 +31,13 @@ function Resolve-CoreConsolePath {
     }
 
     $configuredPath = [Environment]::GetEnvironmentVariable(
-        "MODELY_CORE_CONSOLE_PATH")
+        "CAD_E2E_CORE_CONSOLE_PATH")
+    if ([string]::IsNullOrWhiteSpace($configuredPath)) {
+        # Compatibility with consumers created before the harness became
+        # product-agnostic.
+        $configuredPath = [Environment]::GetEnvironmentVariable(
+            "MODELY_CORE_CONSOLE_PATH")
+    }
     if (-not [string]::IsNullOrWhiteSpace($configuredPath)) {
         return Resolve-CoreConsolePath -RequestedPath $configuredPath
     }
@@ -81,14 +89,20 @@ if ($AssemblyPaths.Count -eq 0) {
     throw "At least one assembly is required."
 }
 
-$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
-$artifactRoot = Join-Path $repoRoot "Artifacts\CadE2E-Harness"
-$sourceDrawingPath = if ([string]::IsNullOrWhiteSpace($TestDrawingPath)) {
-    Join-Path $repoRoot "CustomData\ZhuanZhuanStandardBlock.dwg"
+if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+} elseif ([System.IO.Path]::IsPathRooted($RepositoryRoot)) {
+    $repoRoot = [System.IO.Path]::GetFullPath($RepositoryRoot)
 } else {
-    Resolve-RepositoryPath -RepositoryRoot $repoRoot `
-        -RequestedPath $TestDrawingPath
+    $repoRoot = [System.IO.Path]::GetFullPath(
+        (Join-Path (Get-Location).Path $RepositoryRoot))
 }
+if (-not (Test-Path -LiteralPath $repoRoot -PathType Container)) {
+    throw "Consuming repository root was not found: $repoRoot"
+}
+$artifactRoot = Join-Path $repoRoot "Artifacts\CadE2E-Harness"
+$sourceDrawingPath = Resolve-RepositoryPath -RepositoryRoot $repoRoot `
+    -RequestedPath $TestDrawingPath
 if (-not (Test-Path -LiteralPath $sourceDrawingPath -PathType Leaf)) {
     throw "Test drawing was not found at: $sourceDrawingPath"
 }
