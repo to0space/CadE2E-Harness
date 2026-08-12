@@ -19,6 +19,20 @@ assembly paths, AutoCAD commands, semantic markers, and expected artifacts.
 Core Console validates headless AutoCAD behavior. Validate modeless UI rendering
 and interactive window behavior in full AutoCAD.
 
+## Run a typed command smoke suite
+
+Use `Run-CommandSmoke.ps1` when the consuming repository exposes one headless
+AutoCAD test command with a semantic PASS marker. Supply the standard projects
+to build, assemblies in NETLOAD order, command name, marker, and optional input
+drawing. The runner copies the drawing, builds without redirecting output,
+loads the requested assemblies, persists the log, and requires the marker.
+
+Treat each migrated command as a separate named assertion inside the aggregate
+test command. Rerun the aggregate suite after adding each case so older command
+slices remain covered. A typed smoke establishes config loading, dependency
+loading, and deterministic planner behavior. Keep drawing mutation and visual
+equivalence pending until the required DWG state is available.
+
 ## Execution contract
 
 1. Build and load the consuming project's standard deployment output.

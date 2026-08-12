@@ -117,3 +117,21 @@ PDF and PNG facade views isolate the model-space entities created by the
 current LMSC run. Existing elevations in the source drawing therefore do not
 overlap the visual evidence. The saved `generated.dwg` remains the complete
 post-command drawing.
+
+## Configured generic LMSC visual report
+
+`Run-LmscGdcVisualTests.ps1` verifies `GenericDesignCommands/Lmsc` separately
+from the Zhuanzhuan CDC runtime. Its test bridge infers a generic YAML from the
+CDC's mapping and planning sections, supplies A/B/C/D index frames, and invokes
+`LmscCommand` with the generic adapter and workflow:
+
+```powershell
+& .\tests\CadE2E-Harness\Run-LmscGdcVisualTests.ps1 `
+  -CoreConsolePath "C:\Program Files\Autodesk\AutoCAD 2023\accoreconsole.exe" `
+  -TestDrawingPath "D:\path\to\store-plan.dwg"
+```
+
+Artifacts use the `Lmsc-Gdc-Visual-yyyyMMdd-HHmmss-fff` prefix. The HTML report
+links the inferred `LmscConfig.yaml`, generated DWG, A/B/C/D PDF/PNG views,
+missing block inventory, and any `PolicyKey` values that still require a
+client-specific runtime extension.
