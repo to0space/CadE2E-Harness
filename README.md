@@ -1,283 +1,119 @@
-# Unit Testing AutoCAD with NUnit + AcCoreConsole
+# CadE2E-Harness
 
-This project demonstrates how to write and execute automated **unit tests for AutoCAD drawings** using:
+CadE2E-Harness executes CAD plugins inside Autodesk AutoCAD Core Console: build
+the plugin, `NETLOAD` it through an AutoCAD script, invoke a test command, and
+assert against the console output and generated artifacts.
 
-- [`NUnit`](https://nunit.org/)
+Source of truth: [to0space/CadE2E-Harness](https://github.com/to0space/CadE2E-Harness).
 
-- `accoreconsole.exe` — AutoCAD’s headless scripting engine
+The harness is normally committed into a consuming project as a Git submodule.
+For ModelY, use the conventional path `tests/CadE2E-Harness`:
 
-- AutoCAD .NET API
-
-- AutoCAD 2026 (latest as of this writing — works for older and future releases too)
-
-### 📦 NuGet Packages Used
-
-This project uses the following NuGet packages:
-
-| Package            | Version | Description                                                            |
-| ------------------ | ------- | ---------------------------------------------------------------------- |
-| `NUnit`            | 4.3.2   | Latest NUnit framework for writing test cases.                         |
-| `NUnitLite`        | 4.3.2   | Embedded lightweight runner to execute tests via AutoCAD Core Console. |
-| `ExtentReports`    | 5.0.4   | Beautiful HTML test report generator integrated with the tests.        |
-| `AutoCAD.NET.Core` | 25.1.0  | AutoCAD 2026 .NET API package for custom development and testing.      |
-
-> ✅ **Note**: `NUnitLite` is used to self-host and run the tests from inside `accoreconsole.exe`, making the solution CI/CD friendly without needing an external test runner.
-
----
-
-## 🔧 Project Setup
-
-### 1. Prerequisites
-
-- **AutoCAD 2026 installed**
-
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-
-- Visual Studio 2022+ with desktop development workload
-
-- Access to required AutoCAD .NET reference assemblies (`acdbmgd.dll`, `acmgd.dll` etc.)
-
----
-
-### 2. Clone and Build
-
-Before building, make sure AutoCAD assemblies are referenced correctly in the `.csproj`.
-
-```bash
-git clone https://github.com/MadhukarMoogala/coreconsolerunner.git
-cd coreconsolerunner
-msbuild /t:build coreconsolerunner.sln
+```powershell
+git submodule add git@github.com:to0space/CadE2E-Harness.git tests/CadE2E-Harness
+git submodule update --init --recursive
+git add .gitmodules tests/CadE2E-Harness
+git commit -m "Add CadE2E-Harness submodule"
 ```
 
-## ✅ Running Tests
+After cloning a consuming project, initialize the harness with
+`git submodule update --init --recursive`. Commit harness development in its
+source repository first, then commit the updated submodule pointer in the
+consuming project.
 
-This project allows running NUnit-based unit tests against DWG files in **three different ways**:
+The consuming repository owns its plugin and test-command assemblies. This
+submodule owns the runners, E2E execution conventions, and reusable skill.
 
-### ✅ Summary of Logic Flow:
+The config-discovery test calls the same catalog and YAML loader used by
+`T0PZ`. It verifies that these files are visible and parse successfully inside
+the AutoCAD host:
 
-| Case                                  | Logic                                           |
-| ------------------------------------- | ----------------------------------------------- |
-| **1. Core Console**                   | Use `/i` argument passed via command line       |
-| **2. AutoCAD GUI, file open**         | Use active document path if available and saved |
-| **3. AutoCAD GUI, no doc or unsaved** | Prompt user to select a `.dwg` file for testing |
+- `GlobalConfig.yaml`
+- `HelloTo0Config.yaml`
+- `CadToSuConfig.yaml`
+- `ZhuanZhuanLmscConfig.yaml`
 
-### 🟦 Case 1 – **AutoCAD Core Console (accoreconsole.exe)**
+Run from the repository root:
 
-Best for CI pipelines and automation.
-
-#### **Steps**:
-
-1. Ensure your DWG test file path is passed using the `/i` switch.
-
-2. Run the `accoreconsole` with a script file that `NETLOAD`s your DLL and runs the `RunCADtests` command.
-
-#### Example:
-
-```batch
-accoreconsole.exe /i "D:\Tests\testdrawing.dwg" /s "TestRun.scr"
+```powershell
+& .\tests\CadE2E-Harness\Run-Tests.ps1
 ```
 
-`TestRun.scr` contents:
+The runner locates the newest installed `accoreconsole.exe`. Override it when
+needed:
 
-```bash
-NETLOAD
-D:\Path\To\Your\TestAssembly.dll
-RunCADtests
-QUIT
-Y
+```powershell
+& .\tests\CadE2E-Harness\Run-Tests.ps1 `
+  -CoreConsolePath "C:\Program Files\Autodesk\AutoCAD 2023\accoreconsole.exe" `
+  -TestDrawingPath "D:\path\to\store-plan.dwg"
 ```
 
-### 🟦 Case 2 – **AutoCAD GUI (Named Drawing)**
+The runner builds and tests the standard facade deployment:
 
-Run tests on the currently opened DWG file in the AutoCAD GUI.
-
-#### **Steps**:
-
-1. Open your DWG file in AutoCAD.
-
-2. Load your test DLL using `NETLOAD`.
-
-3. Run the command:
-
-```bash
-Command: RunCADtests
+```text
+ModelY/bin/Debug/net472/ModelY.AutoCAD.dll
 ```
 
-## 🟦 Case 3 – **AutoCAD GUI (Prompt User for File)**
+It does not create a second plugin deployment. Core Console logs are written
+under `Artifacts/CadE2E-Harness/`.
 
-If no document is open, AutoCAD will prompt the user to select a `.dwg` file for testing.
+To validate the exact deployment loaded by AutoCAD without rebuilding it:
 
-#### **Steps**:
-
-1. Start AutoCAD.
-
-2. `NETLOAD` your DLL.
-
-3. Run the command:
-   
-   1. `Command: RunCADtests`
-
-4. A file dialog will appear asking for a DWG file.
-
-5. After selection, tests will be run against that file in an **off-screen** side database.
-
-## 
-
-## 📄 Sample Output
-
-- Running in `accoreconsole.exe` with `RunTests.bat`
-
-```log
-RunTests.bat
-Current dir is now: D:\Work\repo\CoreConsoleTestRunner
-Using accoreconsole at: D:\ACAD\watt\AutoCAD 2026\accoreconsole.exe
-Running in AutoCAD mode...
-Redirect stdout (file: C:\Users\moogalm\AppData\Local\Temp\accc315322).
-AcCoreConsole: StdOutConsoleMode: processed-output: enabled,auto
-AutoCAD Core Engine Console - Copyright 2025 Autodesk, Inc.  All rights reserved. (W.74.0.0)
-
-Execution Path:
-D:\ACAD\watt\AutoCAD 2026\accoreconsole.exe
-Current Directory: D:\Work\repo\CoreConsoleTestRunner
-
-Version Number: W.74.0.0 (UNICODE)
-LogFilePath has been set to the working folder.
-Regenerating model.
-Drawing created using acadiso.dwt from AutoCAD profile: <<Unnamed Profile>>
-**** System Variable Changed ****
-1 of the monitored system variables has changed from the preferred value. Use SYSVARMONITOR command to view changes.
-
-
-AutoCAD menu utilities loaded.
-Command:
-Command:
-
-Command:
-Command: SECURELOAD
-
-Enter new value for SECURELOAD <0>: 0
-
-Command: netload Assembly file name: "D:\Work\repo\CoreConsoleTestRunner\CoreConsoleRunner\bin\x64\Debug\net8.0-windows\win-x64\CoreConsoleRunner.dll"
-
-Command: RunCADtests
-
-Running NUnit tests...
-
-Invalid or missing drawing path:
-Command: QUIT
-_Y
-Really want to discard all changes to drawing? <N> _Y
-
-Command:
-QUIT
-
-LogFilePath has been restored to ''.
-Exit Code: 0
+```powershell
+& .\tests\CadE2E-Harness\Run-Tests.ps1 `
+  -ExistingPluginPath ".\ModelY\bin\Debug\net472\ModelY.AutoCAD.dll" `
+  -TestDrawingPath "D:\path\to\store-plan.dwg"
 ```
 
-- Running from AutoCAD GUI
+Core Console is headless, so this test covers command registration and the
+catalog feeding the T0PZ file selector. WPF rendering remains a GUI-host test.
 
-![RunningTestInGUI](runtestsGUI.png)
+## LMSC named-DWG tests
 
-## Test Reports
+`Run-LmscTests.ps1` loads a named drawing, the standard ModelY facade, and the
+test assembly, then invokes the AutoCAD command `RunCADtests`:
 
-- XML results saved to:  
-  `TestResult.xml`
-
-- Optional: Generate **HTML reports** using:
-  
-  - [ExtentReports](https://extentreports.com/)
-    
-    ![SampleReport](report.png)
-
----
-
-## Project Structure
-
- ![ProjectStructure](projectstructure.png)
-
----
-
-## 
-
-### Adding New Tests
-
-To add a new AutoCAD entity test, create a class under the `Tests/` folder using the same pattern as existing ones. Each test class must:
-
-- Inherit from `DrawingTestBase`
-
-- Be decorated with `[TestFixture, Apartment(ApartmentState.STA), Category("EntityName")]`
-
-🆕 Example: `LineTests`
-
-```csharp
-[TestFixture, Apartment(ApartmentState.STA), Category("Line")]
-public class LineTests : DrawingTestBase
-{
-    private Line _line;
-
-    public void GetFirstLine()
-    {
-        if (_line != null) return;
-
-        var modelSpace = (BlockTableRecord)trans.GetObject(
-            SymbolUtilityServices.GetBlockModelSpaceId(testDb),
-            OpenMode.ForRead);
-
-        foreach (ObjectId entId in modelSpace)
-        {
-            if (entId.ObjectClass.Name == "AcDbLine")
-            {
-                _line = trans.GetObject(entId, OpenMode.ForRead) as Line;
-                break;
-            }
-        }
-
-        if (_line == null)
-            Assert.Fail("No line entity found in ModelSpace.");
-    }
-
-    [Test]
-    public void LineLengthTest()
-    {
-        GetFirstLine();
-        var test = TestReport.Extent.CreateTest(nameof(LineLengthTest));
-        Assert.That(_line.Length, Is.EqualTo(100).Within(0.001));
-        test.Pass($"Length: {_line.Length}");
-    }
-
-    [Test]
-    public void LineStartPointTest()
-    {
-        GetFirstLine();
-        var test = TestReport.Extent.CreateTest(nameof(LineStartPointTest));
-        Assert.That(_line.StartPoint, Is.EqualTo(new Point3d(0, 0, 0)).Using<Point3d>((a, b) => a.IsEqualTo(b, new Tolerance(1e-6, 1e-6)) ? 0 : 1));
-        test.Pass($"Start Point: {_line.StartPoint}");
-    }
-}
+```powershell
+& .\tests\CadE2E-Harness\Run-LmscTests.ps1 `
+  -CoreConsolePath "C:\Program Files\Autodesk\AutoCAD 2023\accoreconsole.exe" `
+  -TestDrawingPath "D:\path\to\store-plan.dwg"
 ```
 
-## 💡 Notes
+The current suite is read-only. It validates the named drawing, LMSC YAML,
+standard block asset, paper layouts, facade index blocks and viewports, local
+index geometry, Zhuanzhuan drawing frames, and configured plan-block mappings.
 
-- `accoreconsole.exe` is headless: ideal for CI/CD pipelines and regression testing.
+To see the same test in full AutoCAD, load these assemblies in order:
 
-- Ensure that `SECURELOAD` is set to `0` in script to allow `.dll` loading.
+1. `ModelY/bin/Debug/net472/ModelY.AutoCAD.dll`
+2. `Tests/ModelY.AutoCAD.Tests/bin/Debug/net472/ModelY.AutoCAD.Tests.dll`
 
-- Tests can inspect entities (e.g. `Circle`, `BlockReference`) using AutoCAD API.
+Open the target DWG and run `RunCADtests`.
 
-### 🙏 Special Thanks
+## LMSC visual report
 
-This project is inspired by:
+`Run-LmscVisualTests.ps1` runs the real LMSC generation workflow on a copied
+DWG. Its fixed MVP profile is 中岛, facades A/B/C/D, 3200 left/right heights,
+and the legacy default upper-logo dimensions. The source DWG remains unchanged.
 
-- [**CADbloke/CADtest**](https://github.com/CADbloke/CADtest)  
-  *CADtest runs NUnitLite version 3 inside AutoCAD and/or the AutoCAD Core Console.*
+```powershell
+& .\tests\CadE2E-Harness\Run-LmscVisualTests.ps1 `
+  -CoreConsolePath "C:\Program Files\Autodesk\AutoCAD 2023\accoreconsole.exe" `
+  -TestDrawingPath "D:\path\to\store-plan.dwg"
+```
 
-Highly recommended resource for plugin-level unit testing:
+The result folder uses a readable local timestamp, for example
+`Artifacts/CadE2E-Harness/Lmsc-Visual-20260811-193045-123`. It contains:
 
-- **AutoCAD/Civil 3D Plugin Unit Test with NUnit – Civil WHIZ**  
-  *A helpful guide on structuring NUnit-based tests in the context of AutoCAD and Civil 3D.*](https://civilwhiz.com/docs/autocad-civil-3d-plugin-unit-test-with-nunit/)
+- `report.html`, with an embedded PDF view for each generated facade;
+- `facade-A.pdf` through `facade-D.pdf`, plus black-background PNG previews;
+- `generated.dwg`, the modified test copy;
+- `CoreConsole.log`.
 
-### ✍️ Written By
+The runner requires all four facade PDFs and the
+`MODELY_CAD_VISUAL_TEST_END|PASS` marker.
 
-**Madhukar Moogala**  
-*Developer Advocate*
+PDF and PNG facade views isolate the model-space entities created by the
+current LMSC run. Existing elevations in the source drawing therefore do not
+overlap the visual evidence. The saved `generated.dwg` remains the complete
+post-command drawing.
