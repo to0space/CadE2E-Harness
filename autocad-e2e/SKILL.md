@@ -23,9 +23,11 @@ and interactive window behavior in full AutoCAD.
 
 Use `Run-CommandSmoke.ps1` when the consuming repository exposes one headless
 AutoCAD test command with a semantic PASS marker. Supply the standard projects
-to build, assemblies in NETLOAD order, command name, marker, and optional input
-drawing. The runner copies the drawing, builds without redirecting output,
-loads the requested assemblies, persists the log, and requires the marker.
+to build, assemblies in NETLOAD order, command name, marker, and an explicit
+input drawing. Supply the consuming `RepositoryRoot` when the Harness is nested
+inside another mounted module. The runner copies the drawing, builds without
+redirecting output, loads the requested assemblies, persists the log, and
+requires the marker.
 
 Treat each migrated command as a separate named assertion inside the aggregate
 test command. Rerun the aggregate suite after adding each case so older command
