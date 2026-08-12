@@ -137,12 +137,39 @@ if ($output.Contains("MODELY_CONFIG_LOAD_ERROR|")) {
     throw "The T0PZ YAML loader reported an error. Log: $logPath"
 }
 
-$requiredConfigFiles = @(
-    "GlobalConfig.yaml",
-    "HelloTo0Config.yaml",
-    "CadToSuConfig.yaml",
-    "ZhuanZhuanLmscConfig.yaml"
+$configSourceRoots = @(
+    (Join-Path $repoRoot "GenericDesignCommands"),
+    (Join-Path $repoRoot "CustomDesignCommands"),
+    (Join-Path $repoRoot "GlobalConfigs")
 )
+$sourceConfigFiles = @(
+    foreach ($root in $configSourceRoots) {
+        if (Test-Path -LiteralPath $root -PathType Container) {
+            Get-ChildItem -LiteralPath $root -Filter "*Config.yaml" `
+                -File -Recurse |
+                Where-Object {
+                    $_.FullName -notmatch '[\\/](bin|obj)[\\/]'
+                }
+        }
+    }
+)
+$duplicateNames = @(
+    $sourceConfigFiles |
+        Group-Object Name |
+        Where-Object Count -gt 1
+)
+if ($duplicateNames.Count -gt 0) {
+    $names = ($duplicateNames | ForEach-Object Name) -join ", "
+    throw "Command config filenames must be globally unique: $names"
+}
+$requiredConfigFiles = @(
+    $sourceConfigFiles |
+        ForEach-Object Name |
+        Sort-Object -Unique
+)
+if ($requiredConfigFiles.Count -eq 0) {
+    throw "No command/global source configurations were found."
+}
 foreach ($fileName in $requiredConfigFiles) {
     $marker = "MODELY_CONFIG_FILE|$fileName|"
     if (-not $output.Contains($marker)) {
@@ -155,10 +182,11 @@ foreach ($fileName in $requiredConfigFiles) {
     }
 }
 
-if (-not $output.Contains("MODELY_CONFIG_DISCOVERY_END|4")) {
-    throw "Expected exactly four command/global configs. Log: $logPath"
+$expectedEndMarker = "MODELY_CONFIG_DISCOVERY_END|" + $requiredConfigFiles.Count
+if (-not $output.Contains($expectedEndMarker)) {
+    throw "Expected exactly $($requiredConfigFiles.Count) command/global configs. Log: $logPath"
 }
 
-Write-Host "PASS: T0PZ discovered and loaded all four configuration files in AutoCAD Core Console."
+Write-Host "PASS: T0PZ discovered and loaded all required configuration files in AutoCAD Core Console."
 Write-Host "Plugin: $pluginPath"
 Write-Host "Log: $logPath"
