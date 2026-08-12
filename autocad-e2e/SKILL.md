@@ -1,114 +1,81 @@
 ---
 name: autocad-e2e
-description: Run, diagnose, or extend end-to-end and fully automated CAD tests through Autodesk AutoCAD Core Console, then verify the result in a normal full-AutoCAD user environment. Use for assembly loading, command execution, named-DWG validation, mutating CAD workflows, generated-DWG checks, HTML/PDF/PNG visual evidence, or final user-environment acceptance in a consuming codebase.
+description: 通过 Autodesk AutoCAD Core Console 运行、诊断或扩展端到端和全自动 CAD 测试，并在正常完整 AutoCAD 用户环境中完成验证。适用于程序集加载、命令执行、命名 DWG 校验、写图工作流、生成 DWG 检查、HTML/PDF/PNG 视觉证据和最终用户环境验收。
 ---
 
 # AutoCAD E2E
 
-Read the consuming repository's codebase-specific test skill and the selected
-runner before execution. The consuming repository defines its build targets,
-assembly paths, AutoCAD commands, semantic markers, and expected artifacts.
+执行前阅读消费仓库的 Codebase-specific Test Skill 和所选 Runner。消费仓库定义构建目标、程序集路径、AutoCAD 命令、语义 Marker 和期望 Artifact。
 
-## Select the smallest sufficient test
+## 选择最小充分测试
 
-- Use a host-loading test for command registration, dependency loading, and configuration discovery.
-- Use a read-only named-DWG test for drawing readiness and domain assertions.
-- Use a mutating named-DWG test when correctness depends on generated or modified CAD entities.
-- Add a visual report when geometry, layout, scale, clipping, or overlap must be inspected.
+- 命令注册、依赖加载和配置发现：Host Loading Test；
+- 图纸就绪度和领域断言：只读 Named-DWG Test；
+- 正确性依赖生成或修改实体：Mutating Named-DWG Test；
+- 需要检查几何、布局、比例、裁切或重叠：增加视觉报告。
 
-Core Console validates headless AutoCAD behavior. Validate modeless UI rendering
-and interactive window behavior in full AutoCAD.
+Core Console 验证无界面 AutoCAD 行为；无模式 UI 和交互窗口在完整 AutoCAD 中验证。
 
-## Run a typed command smoke suite
+## 运行类型化 Command Smoke
 
-Use `Run-CommandSmoke.ps1` when the consuming repository exposes one headless
-AutoCAD test command with a semantic PASS marker. Supply the standard projects
-to build, assemblies in NETLOAD order, command name, marker, and an explicit
-input drawing. Supply the consuming `RepositoryRoot` when the Harness is nested
-inside another mounted module. The runner copies the drawing, builds without
-redirecting output, loads the requested assemblies, persists the log, and
-requires the marker.
+消费仓库提供一个带语义 PASS Marker 的 Headless AutoCAD Test Command 时，使用 `Run-CommandSmoke.ps1`。传入标准构建项目、NETLOAD 顺序、命令名、Marker 和显式输入图纸；Harness 嵌套时传入消费 `RepositoryRoot`。Runner 会复制图纸、保持标准输出构建、加载程序集、保存日志并要求 Marker。
 
-Treat each migrated command as a separate named assertion inside the aggregate
-test command. Rerun the aggregate suite after adding each case so older command
-slices remain covered. A typed smoke establishes config loading, dependency
-loading, and deterministic planner behavior. Keep drawing mutation and visual
-equivalence pending until the required DWG state is available.
+聚合测试命令中，每个迁移命令使用独立命名断言。增加用例后重跑整套测试，保证旧阶段仍有覆盖。Typed Smoke 证明配置加载、依赖加载和确定性 Planner；所需 DWG 状态具备前，写图和视觉等价保持 Pending。
 
-## Execution contract
+## 执行契约
 
-1. Build and load the consuming project's standard deployment output.
-2. Do not create a parallel plugin deployment for testing.
-3. Treat locked deployment warnings as build failures.
-4. Copy a user-provided drawing into a new artifact directory before any mutating command.
-5. Name run directories with local timestamps in `yyyyMMdd-HHmmss-fff` form.
-6. Load the exact assemblies under test in their required order.
-7. Capture stdout and stderr asynchronously and persist the complete host log.
-8. Check the Core Console exit code, the project-defined semantic completion marker, every assertion, and every required artifact.
+1. 构建并加载消费项目的标准部署输出；
+2. 测试不得创建平行插件部署；
+3. 锁定部署警告视为构建失败；
+4. 写图命令运行前，把用户图纸复制到新的 Artifact 目录；
+5. 运行目录使用本地时间戳 `yyyyMMdd-HHmmss-fff`；
+6. 按所需顺序加载被测程序集；
+7. 异步捕获 stdout/stderr 并保存完整 Host Log；
+8. 检查 Exit Code、项目语义 Completion Marker、全部断言和必需 Artifact。
 
-A successful build or zero process exit code does not establish E2E success.
+构建成功或进程 Exit Code 为 0 都不能单独证明 E2E 成功。
 
-## Make commands automatable
+## 让命令可自动化
 
-Expose a typed headless entry point returning a structured result, or emit an
-unambiguous success or failure marker. CAD command wrappers and legacy code may
-catch exceptions, so the runner must detect semantic failure independently of
-the process exit code.
+公开返回结构化结果的类型化 Headless Entry Point，或输出无歧义 Success/Failure Marker。CAD Wrapper 和 Legacy Code 可能捕获异常，因此 Runner 必须独立于 Process Exit Code 检测语义失败。
 
-Keep configuration and asset validation inside the AutoCAD host when behavior
-depends on imported block definitions, drawing dictionaries, layouts, or other
-host state. Persist enough diagnostics to explain missing, substituted, or
-fallback resources.
+行为依赖导入块定义、Drawing Dictionary、Layout 或其他 Host State 时，配置与资产校验应在 AutoCAD Host 内完成，并保存足以解释 Missing/Substituted/Fallback Resource 的诊断。
 
-## Produce trustworthy visual evidence
+## 生成可信视觉证据
 
-For a generation test:
+生成测试应：
 
-1. Record model-space entity IDs before the command.
-2. Run the command once on the fresh drawing copy.
-3. Record entity IDs afterward and calculate the current-run difference.
-4. Plot the current-run entities by temporarily hiding pre-existing model entities inside an aborting transaction.
-5. Save the complete post-command drawing separately.
+1. 命令前记录 Model Space Entity ID；
+2. 在新图纸副本上只运行一次命令；
+3. 命令后记录 Entity ID 并求本次新增集合；
+4. 在 Abort Transaction 中临时隐藏已有实体，只 Plot 本次实体；
+5. 单独保存完整命令后图纸。
 
-This isolates the visual evidence when the source already contains generated
-geometry. The saved drawing remains the complete result.
+源图已有生成几何时，这能隔离本次视觉证据；保存 DWG 仍是完整结果。
 
-For Core Console plotting, disable background plotting and file dialogs,
-activate the required layout, validate plot devices, and wait for output files.
-Keep PDFs print-friendly. A consuming project may generate deterministic
-dark-background previews for screen inspection.
+Core Console Plot 时关闭 Background Plot 和 File Dialog，激活所需 Layout，校验 Plot Device 并等待输出文件。PDF 应便于打印；消费项目可以生成确定性黑底预览供屏幕检查。
 
-Inspect every visual for blank output, clipping, unreadable scale, and overlap.
-Confirm that the report includes every expected view and links the generated
-drawing.
+逐张检查空白、裁切、比例不可读和重叠；确认报告覆盖全部预期 View，并链接生成图纸。
 
-## Rerun in the normal user environment
+## 在正常用户环境重跑
 
-After the automated suite passes, rerun the user-facing workflow in the
-installed full AutoCAD application under a normal user profile. Treat this run
-as final acceptance for a change that will be loaded interactively.
+自动套件通过后，在正常用户 Profile 的完整 AutoCAD 中重跑用户工作流，作为交互加载变更的最终验收：
 
-1. Load the same standard deployment assembly exercised by Core Console.
-2. Open a fresh copy of the representative drawing used by the automated run.
-3. Invoke the real public command through its normal UI or command-line entry.
-4. Verify command discovery, dependency loading, configuration and asset
-   discovery, prompts or modeless UI, drawing mutations, and saved output.
-5. Record the assembly path, AutoCAD version/profile, input drawing, command,
-   observed result, and any screenshot or generated drawing used as evidence.
+1. 加载 Core Console 已测试的同一标准部署程序集；
+2. 打开自动测试使用的代表性图纸新副本；
+3. 通过正常 UI 或命令行运行真实公开命令；
+4. 检查 Command Discovery、Dependency、Configuration/Asset、Prompt/UI、Drawing Mutation 和保存结果；
+5. 记录程序集路径、AutoCAD 版本/Profile、输入图纸、命令、观察结果和截图/生成图纸。
 
-Report the state as `Core Console PASS / normal-user run pending` until this
-acceptance run has completed. If the agent cannot control the interactive CAD
-session, provide exact reproduction steps and capture the user's result.
+该验收完成前，状态写为 `Core Console PASS / normal-user run pending`。Agent 无法控制交互 CAD 时，提供精确复现步骤并记录用户结果。
 
-## Diagnose failures
+## 诊断失败
 
-- Confirm the exact assemblies loaded by AutoCAD; filesystem presence does not prove discovery or loading.
-- Separate host warnings from failed assertions, missing markers, nonzero exit codes, and absent artifacts.
-- For overlap, determine whether the source contains prior output, verify current-run entity isolation, and confirm the command ran once.
-- For missing assets, compare configured identifiers with the definitions actually loaded inside AutoCAD before changing domain logic.
+- 确认 AutoCAD 实际加载的程序集；文件存在不代表已发现或加载；
+- 区分 Host Warning、Assertion Failure、Missing Marker、Nonzero Exit Code 和 Missing Artifact；
+- 出现重叠时，判断源图是否已有输出，校验本次实体隔离，并确认命令只执行一次；
+- 缺少资产时，先比较配置标识与 AutoCAD 内实际加载定义，再修改领域逻辑。
 
-## Report the result
+## 报告结果
 
-State the loaded assemblies, input drawing, runner, semantic marker, key
-assertions, artifact paths, generated entity counts, normal-user acceptance
-result, and unresolved risks.
+说明加载程序集、输入图纸、Runner、语义 Marker、关键断言、Artifact 路径、生成实体数、Normal-user 验收状态和未解决风险。

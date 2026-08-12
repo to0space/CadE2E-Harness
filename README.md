@@ -1,31 +1,26 @@
 # CadE2E-Harness
 
-CadE2E-Harness runs CAD plugin commands inside Autodesk AutoCAD Core Console.
-It builds standard project outputs, copies an explicit input drawing, NETLOADs
-the requested assemblies, invokes one command, and requires a semantic success
-marker.
+CadE2E-Harness 在 Autodesk AutoCAD Core Console 中运行 CAD 插件命令。它构建标准项目输出、复制显式输入图纸、按顺序 `NETLOAD` 指定程序集、调用一个命令，并要求出现语义成功 Marker。
 
-Source of truth: [to0space/CadE2E-Harness](https://github.com/to0space/CadE2E-Harness).
+Source of Truth：[to0space/CadE2E-Harness](https://github.com/to0space/CadE2E-Harness)。
 
-## Use as a submodule
+## 作为 Submodule 使用
 
-A consuming repository normally mounts the harness as a Git submodule:
+消费仓库通常把 Harness 挂载为 Git Submodule：
 
 ```powershell
-git submodule add git@github.com:to0space/CadE2E-Harness.git tests/CadE2E-Harness
+git submodule add git@github.com:to0space/CadE2E-Harness.git Tests/CadE2E-Harness
 git submodule update --init --recursive
 ```
 
-Develop harness changes in the source repository, push them, then update the
-consuming repository's submodule pointer.
+Harness 修改应在源仓库中开发并 Push，随后更新消费仓库中的 Submodule Pointer。
 
-## Command smoke runner
+## 命令冒烟测试 Runner
 
-`Run-CommandSmoke.ps1` is the generic entry point. The consuming repository
-supplies all product-specific values:
+`Run-CommandSmoke.ps1` 是通用入口，消费仓库提供全部产品专用值：
 
 ```powershell
-& .\tests\CadE2E-Harness\Run-CommandSmoke.ps1 `
+& .\Tests\CadE2E-Harness\Run-CommandSmoke.ps1 `
   -RepositoryRoot (Get-Location) `
   -BuildProjectPaths @('Workspace/Product/Product.csproj') `
   -AssemblyPaths @('Workspace/Product/bin/Debug/net472/Product.dll') `
@@ -35,32 +30,22 @@ supplies all product-specific values:
   -ArtifactPrefix 'Product-Smoke'
 ```
 
-`RepositoryRoot` identifies the consuming product repository and defaults to
-the repository that directly contains the Harness submodule. Pass it when the
-Harness is nested inside another mounted module.
+`RepositoryRoot` 表示消费产品仓库，默认是直接包含 Harness Submodule 的仓库。Harness 嵌套在其他模块中时应显式传入。
 
-The runner:
+Runner 会：
 
-1. resolves paths relative to the consuming repository root;
-2. builds each requested project at its standard output path;
-3. copies the source DWG into a timestamped artifact directory;
-4. loads assemblies in the supplied order;
-5. captures stdout and stderr without blocking;
-6. checks the Core Console exit code and semantic success marker; and
-7. writes the full log under `Artifacts/CadE2E-Harness/`.
+1. 相对消费仓库根目录解析路径；
+2. 在标准输出路径构建各项目；
+3. 把源 DWG 复制到时间戳 Artifact 目录；
+4. 按提供顺序加载程序集；
+5. 异步捕获 stdout/stderr；
+6. 检查 Core Console Exit Code 和语义 Success Marker；
+7. 默认把完整日志写入 `Tests/Artifacts/CadE2E-Harness/`。
 
-Pass `-CoreConsolePath` or set `CAD_E2E_CORE_CONSOLE_PATH` when automatic
-discovery does not select the intended AutoCAD installation. The legacy
-`MODELY_CORE_CONSOLE_PATH` variable remains available as a compatibility
-fallback.
+自动发现未选中预期 AutoCAD 时，传入 `-CoreConsolePath` 或设置 `CAD_E2E_CORE_CONSOLE_PATH`。旧 `MODELY_CORE_CONSOLE_PATH` 仅作为兼容 Fallback。
 
-## Project-specific suites
+## 项目专用套件
 
-Configuration expectations, command names, brand fixtures, visual-report
-logic, and product test assemblies belong in the consuming repository. They
-may call this generic runner or implement a project-owned runner using the
-contract in [`autocad-e2e/SKILL.md`](autocad-e2e/SKILL.md).
+配置期望、命令名、品牌 Fixture、视觉报告逻辑和产品测试程序集属于消费仓库。它们可以调用通用 Runner，也可以依照 [`autocad-e2e/SKILL.md`](autocad-e2e/SKILL.md) 的契约实现项目 Runner。
 
-Core Console covers headless host behavior. Complete interactive acceptance in
-a normal full-AutoCAD user environment when the workflow uses modeless UI,
-prompts, or other interactive host state.
+Core Console 覆盖无界面 Host 行为。工作流使用无模式 UI、Prompt 或其他交互状态时，最终验收必须在正常完整 AutoCAD 用户环境完成。

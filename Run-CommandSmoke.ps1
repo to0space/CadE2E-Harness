@@ -10,6 +10,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$TestDrawingPath,
     [string]$RepositoryRoot,
+    [string]$ArtifactRoot,
     [string]$CoreConsolePath,
     [string]$ArtifactPrefix = "Command-Smoke",
     [ValidateSet("Debug", "Release")]
@@ -100,7 +101,15 @@ if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
 if (-not (Test-Path -LiteralPath $repoRoot -PathType Container)) {
     throw "Consuming repository root was not found: $repoRoot"
 }
-$artifactRoot = Join-Path $repoRoot "Artifacts\CadE2E-Harness"
+if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) {
+    $resolvedArtifactRoot = Join-Path `
+        $repoRoot `
+        "Tests\Artifacts\CadE2E-Harness"
+} else {
+    $resolvedArtifactRoot = Resolve-RepositoryPath `
+        -RepositoryRoot $repoRoot `
+        -RequestedPath $ArtifactRoot
+}
 $sourceDrawingPath = Resolve-RepositoryPath -RepositoryRoot $repoRoot `
     -RequestedPath $TestDrawingPath
 if (-not (Test-Path -LiteralPath $sourceDrawingPath -PathType Leaf)) {
@@ -109,7 +118,9 @@ if (-not (Test-Path -LiteralPath $sourceDrawingPath -PathType Leaf)) {
 
 $safePrefix = [regex]::Replace($ArtifactPrefix, '[^A-Za-z0-9._-]', '-')
 $runTimestamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
-$workingDirectory = Join-Path $artifactRoot ($safePrefix + "-" + $runTimestamp)
+$workingDirectory = Join-Path `
+    $resolvedArtifactRoot `
+    ($safePrefix + "-" + $runTimestamp)
 $workingDrawingPath = Join-Path $workingDirectory "smoke-test.dwg"
 $scriptPath = Join-Path $workingDirectory "RunCommandSmoke.scr"
 $logPath = Join-Path $workingDirectory "CoreConsole.log"
