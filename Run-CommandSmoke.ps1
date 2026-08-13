@@ -20,6 +20,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Windows PowerShell 5.1 writes redirected host output with the active OEM/ANSI
+# code page unless the console encoding is set explicitly. ModelY CLI reads the
+# runner stream as UTF-8, so keep the live terminal stream aligned with the
+# UTF-8 CoreConsole.log written below.
+$utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList $false
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
+
 function Resolve-CoreConsolePath {
     param([string]$RequestedPath)
 
