@@ -27,6 +27,7 @@ Harness 修改应在源仓库中开发并 Push，随后更新消费仓库中的 
   -TestDrawingPath 'Tests/TestData/input.dwg' `
   -CommandName 'PRODUCT_E2E_SMOKE' `
   -SuccessMarker 'PRODUCT_E2E_END|PASS' `
+  -ProcessExitPath 'Tests/Artifacts/Product-Smoke/process-exit.json' `
   -ArtifactPrefix 'Product-Smoke'
 ```
 
@@ -41,6 +42,13 @@ Runner 会：
 5. 异步捕获 stdout/stderr；
 6. 检查 Core Console Exit Code 和语义 Success Marker；
 7. 默认把完整日志写入 `Tests/Artifacts/CadE2E-Harness/`。
+
+无论 Core Console 成功、返回非零退出码还是被 Harness 超时终止，Runner 都会写入
+`process-exit.json`。未传 `ProcessExitPath` 时，文件位于本次时间戳 Artifact
+目录；传入后可让消费仓库把它固定到案例或产品验证报告目录。记录包含 CAD PID、
+起止时间、原始十进制/十六进制退出码、超时及主动终止标记、Success Marker 状态、
+日志位置和最终分类：`Succeeded`、`CommandFailed`、`ExitedNonZero`、
+`ProcessCrashed`、`TimedOut` 或 `RunnerFailed`。
 
 自动发现未选中预期 AutoCAD 时，传入 `-CoreConsolePath` 或设置 `CAD_E2E_CORE_CONSOLE_PATH`。旧 `MODELY_CORE_CONSOLE_PATH` 仅作为兼容 Fallback。
 
